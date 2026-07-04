@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Highway Speed Optimizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script>
+        function applyInitialTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                const hour = new Date().getHours();
+                if (hour >= 9 && hour < 21) {
+                    document.documentElement.classList.remove('dark');
+                } else {
+                    document.documentElement.classList.add('dark');
+                }
+            }
+        }
+        applyInitialTheme();
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200 font-sans">
+
+    <header class="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 sticky top-0 z-40 px-4 py-3 flex justify-between items-center shadow-sm">
+        <h1 class="text-xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
+            <i class="fa-solid fa-gauge-high mr-2"></i>SpeedCalc
+        </h1>
+        <div class="flex items-center space-x-2">
+            <button id="settingsToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition" title="Settings">
+                <i class="fa-solid fa-gear text-gray-600 dark:text-gray-400"></i>
+            </button>
+            <button id="themeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                <i id="themeIcon" class="fa-solid fa-sun text-amber-500 hidden dark:block"></i>
+                <i id="themeIconLight" class="fa-solid fa-moon text-slate-700 block dark:hidden"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto p-4 space-y-6">
+        
+        <section class="bg-white dark:bg-gray-950 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 space-y-4">
+            
+            <div class="relative">
+                <div class="relative">
+                    <i class="fa-solid fa-location-dot absolute left-3 top-3.5 text-emerald-500"></i>
+                    <input id="startInput" type="text" placeholder="Starting Position (or configure defaults in settings...)" 
+                        class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition text-sm">
+                </div>
+                <div id="startSuggestions" class="absolute w-full mt-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg z-50 hidden max-h-48 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800"></div>
+            </div>
+
+            <div class="relative">
+                <div class="relative">
+                    <i class="fa-solid fa-flag-checkered absolute left-3 top-3.5 text-red-500"></i>
+                    <input id="destInput" type="text" placeholder="Destination..." 
+                        class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition text-sm">
+                </div>
+                <div id="destSuggestions" class="absolute w-full mt-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg z-50 hidden max-h-48 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800"></div>
+            </div>
+
+            <button id="calculateBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-center space-x-2 text-sm">
+                <span>Calculate Trip</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </section>
+
+        <div id="loading" class="hidden flex flex-col items-center justify-center py-8 space-y-3">
+            <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Analyzing route steps & highways...</p>
+        </div>
+
+        <div id="error" class="hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm flex items-start space-x-2">
+            <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+            <span id="errorText">Could not calculate route.</span>
+        </div>
+
+        <section id="resultsCard" class="hidden bg-white dark:bg-gray-950 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 space-y-4">
+            <h2 class="text-lg font-bold flex items-center justify-between">
+                <span>Trip Analysis</span>
+                <span id="totalDistanceBadge" class="text-xs bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full text-gray-600 dark:text-gray-400 font-medium">0 km</span>
+            </h2>
+
+            <div class="overflow-x-auto border border-gray-100 dark:border-gray-800 rounded-xl">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider">
+                            <th class="p-3 w-1/6">km/h</th>
+                            <th class="p-3 w-1/3 text-emerald-600 dark:text-emerald-400">Total Saved</th>
+                            <th class="p-3 w-1/4 text-teal-600 dark:text-teal-400">Step Gain</th>
+                            <th class="p-3 text-right text-gray-400 font-normal">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody" class="divide-y divide-gray-100 dark:divide-gray-800 font-medium">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="consumptionCard" class="hidden bg-white dark:bg-gray-950 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 space-y-4">
+            <h3 class="text-base font-bold flex items-center space-x-2 text-gray-800 dark:text-gray-200">
+                <i class="fa-solid fa-charging-station text-blue-500"></i>
+                <span>Vehicle Highway Consumption & Cost</span>
+            </h3>
+            
+            <div id="vehicleSegmentedControl" class="flex p-1 bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+                <button data-value="audi" class="flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all bg-white dark:bg-gray-950 text-blue-600 dark:text-blue-400 shadow-sm">Audi SQ5</button>
+                <button data-value="bmw" class="flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all text-gray-500 dark:text-gray-400">BMW iX1</button>
+                <button data-value="clio" class="flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all text-gray-500 dark:text-gray-400">Renault Clio</button>
+            </div>
+
+            <div class="overflow-x-auto border border-gray-100 dark:border-gray-800 rounded-xl">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">
+                            <th class="p-3">km/h</th>
+                            <th class="p-3 text-center">Highway Usage</th>
+                            <th class="p-3 text-right">Est. Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody id="consumptionTableBody" class="divide-y divide-gray-100 dark:divide-gray-800 font-medium text-gray-700 dark:text-gray-300">
+                        </tbody>
+                </table>
+            </div>
+            <p class="text-[10px] text-gray-400 text-center italic">Rates based on Almere averages: Gas Euro 95 at €2.20/L | Public AC Charging at €0.45/kWh.</p>
+        </section>
+    </main>
+
+    <div id="settingsModal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-950 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-gray-100 dark:border-gray-800 pb-2">
+                <h3 class="text-lg font-bold flex items-center"><i class="fa-solid fa-sliders mr-2 text-blue-500"></i>Configuration Settings</h3>
+                <button id="closeSettingsBtn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-2">
+                <span class="block text-xs font-bold uppercase tracking-wider text-gray-400">Allowed Suggestion Countries</span>
+                <div class="grid grid-cols-2 gap-2 text-sm bg-gray-50 dark:bg-gray-900 p-3 rounded-xl">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="country_nl" class="rounded text-blue-600 focus:ring-blue-500">
+                        <span>Netherlands</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="country_be" class="rounded text-blue-600 focus:ring-blue-500">
+                        <span>Belgium</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="country_de" class="rounded text-blue-600 focus:ring-blue-500">
+                        <span>Germany</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="country_fr" class="rounded text-blue-600 focus:ring-blue-500">
+                        <span>France</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="country_es" class="rounded text-blue-600 focus:ring-blue-500">
+                        <span>Spain</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="space-y-3">
+                <span class="block text-xs font-bold uppercase tracking-wider text-gray-400">Tweak App Defaults</span>
+                <div>
+                    <label class="block text-[11px] text-gray-400 mb-1">Default Start Point (Home)</label>
+                    <input id="settingsHomeInput" type="text" placeholder="e.g. Saturnussingel 243, Almere" class="w-full p-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-gray-400 mb-1">Default Destination (Work)</label>
+                    <input id="settingsWorkInput" placeholder="e.g. Wilgenweg 22D, Amsterdam" type="text" class="w-full p-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            
+            <button id="saveSettingsBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl shadow-md transition text-sm flex items-center justify-center">
+                <i class="fa-solid fa-floppy-disk mr-2"></i>
+                <span>Save & Apply Changes</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let startCoords = null;
+        let destCoords = null;
+        let globalHighwayKm = null;
+        let currentVehicle = 'audi';
+
+        const costMatrix = { gas: 2.20, electric: 0.45 };
+
+        // CHANGED: Clean slate settings to protect privacy
+        let currentSettings = {
+            countries: ['nl'],
+            homeAddress: '',
+            homeCoords: null,
+            workAddress: '',
+            workCoords: null
+        };
+
+        const vehicleSpecs = {
+            audi: { fuel: 'gas', unit: '⛽', rates: { 100: 7.8, 110: 8.6, 120: 9.6, 130: 11.0 } },
+            bmw: { fuel: 'electric', unit: '⚡', rates: { 100: 16.8, 110: 18.5, 120: 21.0, 130: 24.2 } },
+            clio: { fuel: 'gas', unit: '⛽', rates: { 100: 5.2, 110: 5.8, 120: 6.6, 130: 7.5 } }
+        };
+
+        const startInput = document.getElementById('startInput');
+        const destInput = document.getElementById('destInput');
+        const startSuggestions = document.getElementById('startSuggestions');
+        const destSuggestions = document.getElementById('destSuggestions');
+        const calculateBtn = document.getElementById('calculateBtn');
+        const loading = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const errorText = document.getElementById('errorText');
+        const resultsCard = document.getElementById('resultsCard');
+        const resultsTableBody = document.getElementById('resultsTableBody');
+        const consumptionCard = document.getElementById('consumptionCard');
+        const consumptionTableBody = document.getElementById('consumptionTableBody');
+
+        const settingsToggle = document.getElementById('settingsToggle');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const settingsHomeInput = document.getElementById('settingsHomeInput');
+        const settingsWorkInput = document.getElementById('settingsWorkInput');
+        const totalDistanceBadge = document.getElementById('totalDistanceBadge');
+
+        const themeToggle = document.getElementById('themeToggle');
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        });
+
+        const segmentButtons = document.querySelectorAll('#vehicleSegmentedControl button');
+        segmentButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                segmentButtons.forEach(b => {
+                    b.className = "flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all text-gray-500 dark:text-gray-400";
+                });
+                btn.className = "flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all bg-white dark:bg-gray-950 text-blue-600 dark:text-blue-400 shadow-sm";
+                currentVehicle = btn.getAttribute('data-value');
+                updateVehicleConsumption();
+            });
+        });
+
+        function loadSettings() {
+            const stored = localStorage.getItem('speedcalc_settings');
+            if (stored) {
+                currentSettings = JSON.parse(stored);
+            } else {
+                localStorage.setItem('speedcalc_settings', JSON.stringify(currentSettings));
+            }
+            
+            startInput.value = currentSettings.homeAddress || '';
+            startCoords = currentSettings.homeCoords || null;
+            destInput.value = currentSettings.workAddress || '';
+            destCoords = currentSettings.workCoords || null;
+
+            settingsHomeInput.value = currentSettings.homeAddress || '';
+            settingsWorkInput.value = currentSettings.workAddress || '';
+            ['nl', 'be', 'de', 'fr', 'es'].forEach(code => {
+                document.getElementById(`country_${code}`).checked = currentSettings.countries.includes(code);
+            });
+        }
+
+        setupAutocomplete(startInput, startSuggestions, (coords, name) => { startCoords = coords; });
+        setupAutocomplete(destInput, destSuggestions, (coords, name) => { destCoords = coords; });
+
+        function setupAutocomplete(inputEl, suggestionEl, onSelect) {
+            let debounceTimer;
+            inputEl.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                const query = inputEl.value.trim();
+                if (query.length < 2) {
+                    suggestionEl.classList.add('hidden');
+                    return;
+                }
+
+                debounceTimer = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=15`);
+                        const data = await response.json();
+                        
+                        suggestionEl.innerHTML = '';
+                        if (data.features && data.features.length > 0) {
+                            let visibleCount = 0;
+                            data.features.forEach(feature => {
+                                const p = feature.properties;
+                                const countryCode = (p.countrycode || '').toLowerCase();
+                                const countryName = (p.country || '').toLowerCase();
+
+                                const isAllowed = currentSettings.countries.some(code => {
+                                    if (code === 'nl' && (countryCode === 'nl' || countryName.includes('netherland') || countryName.includes('nederland'))) return true;
+                                    if (code === 'be' && (countryCode === 'be' || countryName.includes('belgiu') || countryName.includes('belgië') || countryName.includes('belgique'))) return true;
+                                    if (code === 'de' && (countryCode === 'de' || countryName.includes('germany') || countryName.includes('deutschland'))) return true;
+                                    if (code === 'fr' && (countryCode === 'fr' || countryName.includes('france'))) return true;
+                                    if (code === 'es' && (countryCode === 'es' || countryName.includes('spain') || countryName.includes('españa'))) return true;
+                                    return false;
+                                });
+
+                                if (!isAllowed) return;
+
+                                visibleCount++;
+                                let addressParts = [];
+                                if (p.street) {
+                                    const streetWithNumber = p.street + (p.housenumber ? ' ' + p.housenumber : '');
+                                    addressParts.push(streetWithNumber);
+                                    if (p.name && p.name !== p.street && p.name !== p.housenumber) addressParts.unshift(p.name);
+                                } else {
+                                    addressParts.push(p.name);
+                                    if (p.housenumber) addressParts.push(p.housenumber);
+                                }
+                                if (p.postcode) addressParts.push(p.postcode);
+                                if (p.city) addressParts.push(p.city);
+                                if (p.country) addressParts.push(p.country);
+
+                                const fullAddressString = addressParts.filter(Boolean).join(', ');
+                                const btn = document.createElement('button');
+                                btn.className = "w-full text-left px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-900 text-sm transition focus:outline-none truncate text-gray-700 dark:text-gray-300";
+                                btn.textContent = fullAddressString;
+                                btn.type = "button";
+                                btn.addEventListener('click', () => {
+                                    inputEl.value = fullAddressString;
+                                    suggestionEl.classList.add('hidden');
+                                    onSelect(feature.geometry.coordinates, fullAddressString);
+                                });
+                                suggestionEl.appendChild(btn);
+                            });
+
+                            if (visibleCount > 0) suggestionEl.classList.remove('hidden');
+                            else suggestionEl.classList.add('hidden');
+                        } else {
+                            suggestionEl.classList.add('hidden');
+                        }
+                    } catch (err) {
+                        console.error("Geocoding failed", err);
+                    }
+                }, 300);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!inputEl.contains(e.target) && !suggestionEl.contains(e.target)) {
+                    suggestionEl.classList.add('hidden');
+                }
+            });
+        }
+
+        settingsToggle.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+        async function fetchCoordsForAddress(addressStr) {
+            try {
+                const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(addressStr)}&limit=1`);
+                const data = await response.json();
+                if (data.features && data.features.length > 0) {
+                    return data.features[0].geometry.coordinates;
+                }
+            } catch (e) { console.error(e); }
+            return null;
+        }
+
+        saveSettingsBtn.addEventListener('click', async () => {
+            saveSettingsBtn.disabled = true;
+            const originalText = saveSettingsBtn.innerHTML;
+            saveSettingsBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-2"></i>Updating Engine...';
+
+            const homeText = settingsHomeInput.value.trim();
+            const workText = settingsWorkInput.value.trim();
+
+            const activeCountries = [];
+            ['nl', 'be', 'de', 'fr', 'es'].forEach(code => {
+                if (document.getElementById(`country_${code}`).checked) activeCountries.push(code);
+            });
+
+            if (activeCountries.length === 0) {
+                alert("Please check at least one allowed auto-suggest country.");
+                saveSettingsBtn.disabled = false;
+                saveSettingsBtn.innerHTML = originalText;
+                return;
+            }
+
+            let hCoords = null;
+            if (homeText) {
+                const res = await fetchCoordsForAddress(homeText);
+                if (res) hCoords = res;
+            }
+
+            let wCoords = null;
+            if (workText) {
+                const res = await fetchCoordsForAddress(workText);
+                if (res) wCoords = res;
+            }
+
+            currentSettings = {
+                countries: activeCountries,
+                homeAddress: homeText,
+                homeCoords: hCoords,
+                workAddress: workText,
+                workCoords: wCoords
+            };
+
+            localStorage.setItem('speedcalc_settings', JSON.stringify(currentSettings));
+
+            startInput.value = currentSettings.homeAddress;
+            startCoords = currentSettings.homeCoords;
+            destInput.value = currentSettings.workAddress;
+            destCoords = currentSettings.workCoords;
+
+            saveSettingsBtn.disabled = false;
+            saveSettingsBtn.innerHTML = originalText;
+            settingsModal.classList.add('hidden');
+        });
+
+        function isHighwayStep(step) {
+            const name = (step.name || '').toLowerCase();
+            const ref = (step.ref || '').toLowerCase();
+            const highwayKeywords = ['motorway', 'highway', 'autobahn', 'autoroute', 'autopista', 'freeway', 'expressway', 'trunk'];
+            return highwayKeywords.some(k => name.includes(k) || ref.includes(k)) || /^[a-z]\d+/i.test(ref.trim());
+        }
+
+        function formatTimeRounded(totalSeconds) {
+            if (totalSeconds <= 0) return "0m";
+            const hours = Math.floor(totalSeconds / 3600);
+            let minutes = Math.round((totalSeconds % 3600) / 60);
+            
+            let finalHours = hours;
+            let finalMinutes = minutes;
+            if (finalMinutes === 60) {
+                finalHours += 1;
+                finalMinutes = 0;
+            }
+
+            let parts = [];
+            if (finalHours > 0) parts.push(`${finalHours}h`);
+            if (finalMinutes > 0 || parts.length === 0) parts.push(`${finalMinutes}m`);
+            return parts.join(' ');
+        }
+
+        function formatTimeExact(totalSeconds) {
+            if (totalSeconds <= 0) return "0s";
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = Math.round(totalSeconds % 60);
+            
+            let parts = [];
+            if (hours > 0) parts.push(`${hours}h`);
+            if (minutes > 0) parts.push(`${minutes}m`);
+            if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+            return parts.join(' ');
+        }
+
+        function updateVehicleConsumption() {
+            if (globalHighwayKm === null) return;
+            const spec = vehicleSpecs[currentVehicle];
+            const pricePerUnit = costMatrix[spec.fuel];
+            
+            consumptionTableBody.innerHTML = '';
+            [100, 110, 120, 130].forEach(speed => {
+                const rate = spec.rates[speed];
+                const totalConsumption = (rate / 100) * globalHighwayKm;
+                const totalCost = totalConsumption * pricePerUnit;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors text-sm";
+                tr.innerHTML = `
+                    <td class="p-3">${speed}</td>
+                    <td class="p-3 text-center font-semibold">${totalConsumption.toFixed(2)} <span class="text-xs font-normal text-gray-400">${spec.unit}</span></td>
+                    <td class="p-3 text-right font-bold text-emerald-500">€${totalCost.toFixed(2)}</td>
+                `;
+                consumptionTableBody.appendChild(tr);
+            });
+        }
+
+        calculateBtn.addEventListener('click',
