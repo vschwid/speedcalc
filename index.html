@@ -54,7 +54,7 @@
             <div class="relative">
                 <div class="relative">
                     <i class="fa-solid fa-location-dot absolute left-3 top-3.5 text-emerald-500"></i>
-                    <input id="startInput" type="text" placeholder="Starting Position (or configure defaults in settings...)" 
+                    <input id="startInput" type="text" placeholder="Starting Position..." 
                         class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition text-sm">
                 </div>
                 <div id="startSuggestions" class="absolute w-full mt-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg z-50 hidden max-h-48 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800"></div>
@@ -82,14 +82,25 @@
 
         <div id="error" class="hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm flex items-start space-x-2">
             <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
-            <span id="errorText">Could not calculate route.</span>
+            <span id="errorText">Could not calculate route. Please try different locations.</span>
         </div>
 
         <section id="resultsCard" class="hidden bg-white dark:bg-gray-950 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 space-y-4">
-            <h2 class="text-lg font-bold flex items-center justify-between">
-                <span>Trip Analysis</span>
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-bold">Trip Analysis</h2>
                 <span id="totalDistanceBadge" class="text-xs bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full text-gray-600 dark:text-gray-400 font-medium">0 km</span>
-            </h2>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-900 p-3 rounded-xl text-xs">
+                <div>
+                    <span class="block text-gray-400 mb-0.5">Highway Distance</span>
+                    <span id="statHwDist" class="font-semibold text-gray-800 dark:text-gray-200">0 km</span>
+                </div>
+                <div>
+                    <span class="block text-gray-400 mb-0.5">Local Distance</span>
+                    <span id="statLocalDist" class="font-semibold text-gray-800 dark:text-gray-200">0 km</span>
+                </div>
+            </div>
 
             <div class="overflow-x-auto border border-gray-100 dark:border-gray-800 rounded-xl">
                 <table class="w-full text-left text-sm border-collapse">
@@ -175,18 +186,24 @@
                 <span class="block text-xs font-bold uppercase tracking-wider text-gray-400">Tweak App Defaults</span>
                 <div>
                     <label class="block text-[11px] text-gray-400 mb-1">Default Start Point (Home)</label>
-                    <input id="settingsHomeInput" type="text" placeholder="e.g. Saturnussingel 243, Almere" class="w-full p-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input id="settingsHomeInput" type="text" placeholder="Enter default home street and city..." class="w-full p-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="block text-[11px] text-gray-400 mb-1">Default Destination (Work)</label>
-                    <input id="settingsWorkInput" placeholder="e.g. Wilgenweg 22D, Amsterdam" type="text" class="w-full p-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input id="settingsWorkInput" placeholder="Enter default work street and city..." type="text" class="w-full p-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
             
-            <button id="saveSettingsBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl shadow-md transition text-sm flex items-center justify-center">
-                <i class="fa-solid fa-floppy-disk mr-2"></i>
-                <span>Save & Apply Changes</span>
-            </button>
+            <div class="pt-2 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                <button id="saveSettingsBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl shadow-md transition text-sm flex items-center justify-center">
+                    <i class="fa-solid fa-floppy-disk mr-2"></i>
+                    <span>Save & Apply Changes</span>
+                </button>
+                <button id="clearDataBtn" class="w-full bg-transparent hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 border border-red-200 dark:border-red-900/50 font-medium py-2 rounded-xl transition text-xs flex items-center justify-center">
+                    <i class="fa-solid fa-trash-can mr-2"></i>
+                    <span>Wipe All Cached Addresses From This Phone</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -198,7 +215,6 @@
 
         const costMatrix = { gas: 2.20, electric: 0.45 };
 
-        // CHANGED: Clean slate settings to protect privacy
         let currentSettings = {
             countries: ['nl'],
             homeAddress: '',
@@ -230,14 +246,30 @@
         const settingsModal = document.getElementById('settingsModal');
         const closeSettingsBtn = document.getElementById('closeSettingsBtn');
         const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const clearDataBtn = document.getElementById('clearDataBtn');
         const settingsHomeInput = document.getElementById('settingsHomeInput');
         const settingsWorkInput = document.getElementById('settingsWorkInput');
+        
         const totalDistanceBadge = document.getElementById('totalDistanceBadge');
+        const statHwDist = document.getElementById('statHwDist');
+        const statLocalDist = document.getElementById('statLocalDist');
 
         const themeToggle = document.getElementById('themeToggle');
         themeToggle.addEventListener('click', () => {
             document.documentElement.classList.toggle('dark');
             localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        });
+
+        settingsToggle.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+        // Local Storage Clear Interaction Action
+        clearDataBtn.addEventListener('click', () => {
+            if(confirm("This will permanently clear all configurations and addresses from this smartphone. Proceed?")) {
+                localStorage.removeItem('speedcalc_settings');
+                // Force interface restart to clear fields instantly
+                window.location.reload();
+            }
         });
 
         const segmentButtons = document.querySelectorAll('#vehicleSegmentedControl button');
@@ -253,11 +285,20 @@
         });
 
         function loadSettings() {
-            const stored = localStorage.getItem('speedcalc_settings');
-            if (stored) {
-                currentSettings = JSON.parse(stored);
-            } else {
-                localStorage.setItem('speedcalc_settings', JSON.stringify(currentSettings));
+            try {
+                const stored = localStorage.getItem('speedcalc_settings');
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    if (parsed && Array.isArray(parsed.countries)) {
+                        currentSettings = parsed;
+                    }
+                }
+            } catch (e) {
+                console.error("Cache reset.", e);
+            }
+            
+            if (!currentSettings.countries || !Array.isArray(currentSettings.countries)) {
+                currentSettings.countries = ['nl'];
             }
             
             startInput.value = currentSettings.homeAddress || '';
@@ -267,8 +308,10 @@
 
             settingsHomeInput.value = currentSettings.homeAddress || '';
             settingsWorkInput.value = currentSettings.workAddress || '';
+            
             ['nl', 'be', 'de', 'fr', 'es'].forEach(code => {
-                document.getElementById(`country_${code}`).checked = currentSettings.countries.includes(code);
+                const checkbox = document.getElementById(`country_${code}`);
+                if (checkbox) checkbox.checked = currentSettings.countries.includes(code);
             });
         }
 
@@ -353,9 +396,6 @@
                 }
             });
         }
-
-        settingsToggle.addEventListener('click', () => settingsModal.classList.remove('hidden'));
-        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
 
         async function fetchCoordsForAddress(addressStr) {
             try {
@@ -480,4 +520,116 @@
             });
         }
 
-        calculateBtn.addEventListener('click',
+        calculateBtn.addEventListener('click', async () => {
+            if (!startCoords || !destCoords) {
+                showError("Please pick locations explicitly from the dropdown options.");
+                return;
+            }
+
+            errorDiv.classList.add('hidden');
+            resultsCard.classList.add('hidden');
+            consumptionCard.classList.add('hidden');
+            loading.classList.remove('hidden');
+
+            try {
+                const url = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${startCoords[0]},${startCoords[1]};${destCoords[0]},${destCoords[1]}?overview=false&steps=true`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Service connection failure.");
+                
+                const data = await response.json();
+                if (!data.routes || data.routes.length === 0) throw new Error("No paths detected.");
+
+                const route = data.routes[0];
+                let totalDistanceMeters = route.distance;
+                let localSeconds = 0;
+                let highwayDistanceMeters = 0;
+
+                route.legs.forEach(leg => {
+                    leg.steps.forEach(step => {
+                        if (isHighwayStep(step)) highwayDistanceMeters += step.distance;
+                        else localSeconds += step.duration;
+                    });
+                });
+
+                const totalDistanceKm = totalDistanceMeters / 1000;
+                const highwayKm = highwayDistanceMeters / 1000;
+                const localKm = Math.max(0, totalDistanceKm - highwayKm);
+                globalHighwayKm = highwayKm;
+
+                totalDistanceBadge.textContent = `${totalDistanceKm.toFixed(1)} km`;
+                statHwDist.textContent = `${highwayKm.toFixed(1)} km`;
+                statLocalDist.textContent = `${localKm.toFixed(1)} km`;
+
+                resultsTableBody.innerHTML = '';
+                const speeds = [100, 110, 120, 130];
+                
+                const tripSecondsMap = {};
+                speeds.forEach(speed => {
+                    const currentHwHours = highwayKm / speed;
+                    tripSecondsMap[speed] = localSeconds + (currentHwHours * 3600);
+                });
+
+                const baselineTotalSeconds = tripSecondsMap[100];
+                const deviceStartTime = new Date();
+
+                speeds.forEach((speed, index) => {
+                    const totalTripSeconds = tripSecondsMap[speed];
+                    const currentHwHours = highwayKm / speed;
+                    const currentHwSeconds = currentHwHours * 3600;
+                    
+                    const secondsSavedTotal = baselineTotalSeconds - totalTripSeconds;
+                    
+                    let stepGainSeconds = 0;
+                    if (index > 0) {
+                        const previousSpeed = speeds[index - 1];
+                        stepGainSeconds = tripSecondsMap[previousSpeed] - totalTripSeconds;
+                    }
+
+                    const arrivalTime = new Date(deviceStartTime.getTime() + totalTripSeconds * 1000);
+                    const arrivalString = arrivalTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+                    const tr = document.createElement('tr');
+                    tr.className = speed === 100 
+                        ? "bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-semibold text-xs sm:text-sm" 
+                        : "hover:bg-gray-50 dark:hover:bg-gray-900/50 text-gray-700 dark:text-gray-300 transition-colors text-xs sm:text-sm";
+
+                    tr.innerHTML = `
+                        <td class="p-3 font-bold text-gray-900 dark:text-gray-100">${speed}</td>
+                        <td class="p-3 text-base font-black text-emerald-500">
+                            ${secondsSavedTotal > 0 ? '-' + formatTimeExact(secondsSavedTotal) : '—'}
+                        </td>
+                        <td class="p-3 text-xs font-bold text-teal-500">
+                            ${stepGainSeconds > 0 ? '+\u200B' + formatTimeExact(stepGainSeconds) : '—'}
+                        </td>
+                        <td class="p-3 text-right text-[10px] text-gray-400 dark:text-gray-500 font-normal leading-tight">
+                            Hwy: ${formatTimeRounded(currentHwSeconds)}<br>
+                            Tot: ${formatTimeRounded(totalTripSeconds)}<br>
+                            ETA: <span class="font-medium text-gray-600 dark:text-gray-400">${arrivalString}</span>
+                        </td>
+                    `;
+                    resultsTableBody.appendChild(tr);
+                });
+
+                loading.classList.add('hidden');
+                resultsCard.classList.remove('hidden');
+                consumptionCard.classList.remove('hidden');
+                updateVehicleConsumption();
+
+            } catch (err) {
+                console.error(err);
+                loading.classList.add('hidden');
+                showError("Unable to compute journey metrics.");
+            }
+        });
+
+        function showError(msg) {
+            errorText.textContent = msg;
+            errorDiv.classList.remove('hidden');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+        });
+    </script>
+</body>
+</html>
